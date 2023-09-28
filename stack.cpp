@@ -84,6 +84,7 @@ stackErrorField stackCtor(stack *stk, size_t capacity)
     printf("stkHash = %u\n", stk->hash);
     )
 
+    STACK_VERIFY;
     return error;
 }
 
@@ -159,6 +160,7 @@ stackErrorField stackDump(stack *stk, const char *file, int line, const char *fu
     printf("bufferCanary2 = 0x%llx\n", buf_canary);
     )
 
+    STACK_VERIFY;
     return error;
 }
 
@@ -195,6 +197,7 @@ stackErrorField stackPush(stack *stk, elem_t value)
     stk->hash = stackHashCalc(stk);
     )
 
+    STACK_VERIFY;
     return error;
 }
 
@@ -221,6 +224,7 @@ stackErrorField stackPop(stack *stk, elem_t *returnValue)
     stk->hash = stackHashCalc(stk);
     )
 
+    STACK_VERIFY;
     return error;
 }
 
@@ -243,13 +247,21 @@ stackErrorField stackRealloc(stack *stk)
     if (stk->size >= stk->capacity)
     {
         stk->capacity *= REALLOC_RATE;
-        stk->data = (elem_t *)realloc(stk->data, stk->capacity * sizeof(elem_t) + 2 * sizeof(long long));
     }
     else if (stk->size * REALLOC_RATE  * REALLOC_RATE <= stk->capacity)
     {
         stk->capacity /= REALLOC_RATE;
-        stk->data = (elem_t *)realloc(stk->data, stk->capacity * sizeof(elem_t) + 2 * sizeof(long long));
     }
+
+    size_t bufSize = stk->capacity * sizeof(elem_t);
+
+    CANARY_PROTECTION
+    (
+    bufSize += 2 * sizeof(long long);
+    )
+
+    stk->data = (elem_t *)realloc(stk->data, bufSize);
+
     if (!stk->data) 
     {
         error.realloc_failed = 1;
@@ -270,7 +282,13 @@ stackErrorField stackRealloc(stack *stk)
 
 void *myCalloc(size_t elementNum, size_t elementSize)
 {
-    size_t bufSize = elementSize * elementNum + 2 * sizeof(long long);
+    size_t bufSize = elementSize * elementNum;
+    
+    CANARY_PROTECTION
+    (
+    bufSize += 2 * sizeof(long long);
+    )
+
     void *buffer = malloc(bufSize);
     if (!buffer) return NULL;
 
@@ -284,7 +302,7 @@ void *myCalloc(size_t elementNum, size_t elementSize)
     return buffer;
 }
 
-HASH_PROTECTION 
+HASH_PROTECTION
 (
 unsigned int stackHashCalc(stack *stk)
 {
@@ -319,7 +337,7 @@ stackErrorField stackHashCheck(stack *stk)
     unsigned int hashValue = stackHashCalc(stk);
     if (hashValue != stk->hash) error.changed_hash = 1;
 
-    printf("calculated = %u, from memory = %u\n", hashValue, stk->hash);
+    //printf("calculated = %u, from memory = %u\n", hashValue, stk->hash);
 
     return error;
 }
